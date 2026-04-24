@@ -35,11 +35,12 @@
       "module": {
         "page": {
           "pages": [
-            "page/index"
+            "page/index",
+            "page/options"
           ]
         },
         "app-side": {
-          "path": "app-side/index"
+          "path": "app-side/index-ricardo"
         },
         "setting": {
           "path": "setting/index"
@@ -61,11 +62,12 @@
       "module": {
         "page": {
           "pages": [
-            "page/index"
+            "page/index",
+            "page/options"
           ]
         },
         "app-side": {
-          "path": "app-side/index"
+          "path": "app-side/index-simone"
         },
         "setting": {
           "path": "setting/index"
