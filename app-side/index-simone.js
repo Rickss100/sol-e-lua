@@ -22,25 +22,48 @@ AppSideService(
         const messageText = req.params?.message || 'Lembrando de Você 💭'
         console.log(`[Simone] Enviando para Ricardo (${PARTNER_ID}): "${messageText}"`)
 
-        // Envia notificação no Telegram do Ricardo
-        fetch(TELEGRAM_URL, {
+        // Envia Telegram e Firebase em paralelo, com timeout de segurança
+        const telegramPromise = fetch(TELEGRAM_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ chat_id: PARTNER_ID, text: messageText })
-        }).catch(err => console.error('Erro Telegram:', err))
+        })
+        .then(r => {
+          console.log('[Simone] Telegram enviado, status:', r.status)
+          return r.json()
+        })
+        .catch(err => {
+          console.error('[Simone] Erro Telegram:', err)
+          return { error: err.toString() }
+        })
 
-        // Grava no Firebase no nó do Ricardo (para o relógio dele detectar)
-        fetch(`${FIREBASE_URL}/signals/${PARTNER_ID}.json`, {
+        const firebasePromise = fetch(`${FIREBASE_URL}/signals/${PARTNER_ID}.json`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ lastSignalAt: Date.now(), message: messageText })
         })
         .then(r => r.json())
-        .then(() => res(null, { success: true }))
-        .catch(error => {
-          console.error('Erro Firebase:', error)
-          res(null, { success: false, error: 'Falha na conexão' })
+        .then(data => {
+          console.log('[Simone] Firebase gravado:', JSON.stringify(data))
+          return data
         })
+        .catch(error => {
+          console.error('[Simone] Erro Firebase:', error)
+          return { error: error.toString() }
+        })
+
+        // Aguarda os dois e responde ao relógio
+        Promise.all([telegramPromise, firebasePromise])
+          .then(([telegramResult, firebaseResult]) => {
+            const telegramOk = !telegramResult?.error
+            const firebaseOk = !firebaseResult?.error
+            console.log(`[Simone] Resultado: Telegram=${telegramOk}, Firebase=${firebaseOk}`)
+            res(null, { success: telegramOk || firebaseOk })
+          })
+          .catch(err => {
+            console.error('[Simone] Erro geral:', err)
+            res(null, { success: false, error: err.toString() })
+          })
       }
 
       if (req.method === 'CHECK_SIGNAL') {
@@ -56,7 +79,7 @@ AppSideService(
           }
         })
         .catch(error => {
-          console.error('Erro Firebase:', error)
+          console.error('[Simone] Erro Firebase check:', error)
           res(null, { success: false, error: 'Falha na leitura' })
         })
       }
